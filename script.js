@@ -7,6 +7,9 @@ var config = {
     onWinTitle: { label: 'On Win', type: 'title' },
     onWin: { label: '', value: 'reset', type: 'radio', options: [{ value: 'reset', label: 'Return to base bet' }, { value: 'increase', label: 'Increase bet by (win multiplier)' }] },
     winMultiplier: { label: 'win multiplier', value: 1, type: 'number' },
+    pauseTitle: { label: 'Auto Pause Settings', type: 'title' },
+    gamesBeforePause: { label: 'Pause every X games', value: 100, type: 'number' },
+    roundsToSkip: { label: 'Rounds to skip (60 ≈ 10 min)', value: 60, type: 'number' },
     otherConditionsTitle: { label: 'Other Stopping Conditions', type: 'title' },
     winGoalAmount: { label: 'Stop once you have made this much', value: currency.amount * 2, type: 'number' },
     lossStopAmount: { label: 'Stop betting after losing this much without a win.', value: currency.amount / 6, type: 'number' },
@@ -15,20 +18,24 @@ var config = {
 
 var totalWagers = 0, netProfit = 0, totalWins = 0, totalLoses = 0, longestWinStreak = 0, longestLoseStreak = 0, currentStreak = 0, loseStreak = 0, numberOfRoundsToSkip = 0, totalNumberOfGames = 0, originalbalance = currency.amount, runningbalance = currency.amount, consequetiveLostBets = 0, currentBet = GetNewBaseBet();
 
+// Contador para las rondas de recuperación
+var waitingSuccessCount = 0;
+
 function main() {
     game.onBet = function () {
         if (numberOfRoundsToSkip > 0) {
             numberOfRoundsToSkip--;
-            log.info('Skipping round, ' + numberOfRoundsToSkip + ' left.');
+            log.info('System Pause: ' + numberOfRoundsToSkip + ' rounds left.');
             return;
         }
+
         if (totalNumberOfGames == 0) currentBet = GetNewBaseBet();
         
         var isWaiting = (loseStreak >= 3);
         var targetPayout = isWaiting ? 1.01 : config.payout.value;
         var betToPlace = isWaiting ? currency.minAmount : currentBet;
 
-        if (isWaiting) log.info('Safe Betting at 1.01x until crash > 2.0x');
+        if (isWaiting) log.info('Safe Betting. Progress: ' + waitingSuccessCount + '/2 crashes > 2.0x');
         else log.info('Normal Bet: ' + betToPlace.toFixed(8));
 
         game.bet(betToPlace, targetPayout).then(function (payout) {
@@ -36,13 +43,28 @@ function main() {
             
             if (isWaiting) {
                 if (lastCrash > 200) {
-                    log.success('Crash was ' + (lastCrash/100).toFixed(2) + '! Resuming normal strategy.');
-                    loseStreak--;
+                    waitingSuccessCount++;
+                    log.success('Crash was ' + (lastCrash/100).toFixed(2) + '! (' + waitingSuccessCount + '/2)');
+                    
+                    if (waitingSuccessCount >= 2) {
+                        log.success('Double crash detected. Resuming strategy.');
+                        loseStreak = 0; // Reseteamos racha para volver a normal
+                        waitingSuccessCount = 0; // Reseteamos contador de espera
+                    }
+                } else {
+                    // Si sale un crash menor a 2.0x, reiniciamos el contador de 2 rondas seguidas
+                    if (waitingSuccessCount > 0) {
+                        log.error('Crash below 2.0x. Resetting wait counter.');
+                        waitingSuccessCount = 0;
+                    }
                 }
                 return;
             }
 
-            runningbalance -= betToPlace; totalWagers += betToPlace; totalNumberOfGames++;
+            runningbalance -= betToPlace; 
+            totalWagers += betToPlace; 
+            totalNumberOfGames++;
+
             if (payout > 1) {
                 var netwin = betToPlace * config.payout.value - betToPlace;
                 consequetiveLostBets = 0; netProfit += netwin; runningbalance += netwin + betToPlace;
@@ -50,17 +72,24 @@ function main() {
                 LogSummary('true', betToPlace);
                 currentBet = (config.onWin.value === 'reset') ? GetNewBaseBet() : currentBet * config.winMultiplier.value;
             } else {
-                netProfit -= betToPlace; loseStreak++; currentStreak = 0; totalLoses++; consequetiveLostBets += betToPlace;
+                netProfit -= betToPlace; loseStreak++; currentStreak = 0; totalLoses++; 
+                consequetiveLostBets += betToPlace;
                 LogSummary('false', betToPlace);
                 currentBet = (config.onLoss.value == 'reset') ? GetNewBaseBet() : currentBet * config.lossMultiplier.value;
             }
+
+            if (totalNumberOfGames % config.gamesBeforePause.value === 0) {
+                log.success('Reached ' + totalNumberOfGames + ' games. Pausing...');
+                numberOfRoundsToSkip = config.roundsToSkip.value;
+            }
+
             if (currentStreak > longestWinStreak) longestWinStreak = currentStreak;
             if (loseStreak > longestLoseStreak) longestLoseStreak = loseStreak;
             recordStats();
             
             if (config.winGoalAmount.value != 0 && netProfit > config.winGoalAmount.value) game.stop();
             if (config.lossStopAmount.value != 0 && consequetiveLostBets > config.lossStopAmount.value) game.stop();
-            if (config.lossStopAmount.value != 0 &&   runningbalance <  originalbalance*0.9) game.stop();
+            if (config.lossStopAmount.value != 0 && runningbalance < originalbalance * 0.9) game.stop();
         });
     };
 }
