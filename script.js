@@ -1,9 +1,9 @@
 var config = {
-    betPercentage: { label: 'percentage of total coins to bet', value: 0.25, type: 'number' },
+    betPercentage: { label: 'percentage of total coins to bet', value: 0.125, type: 'number' },
     payout: { label: 'payout', value: 1.9, type: 'number' },
     onLoseTitle: { label: 'On Lose', type: 'title' },
     onLoss: { label: '', value: 'increase', type: 'radio', options: [{ value: 'reset', label: 'Return to base bet' }, { value: 'increase', label: 'Increase bet by (loss multiplier)' }] },
-    lossMultiplier: { label: 'loss multiplier', value: 1.9, type: 'number' },
+    lossMultiplier: { label: 'loss multiplier', value: 2, type: 'number' },
     onWinTitle: { label: 'On Win', type: 'title' },
     onWin: { label: '', value: 'reset', type: 'radio', options: [{ value: 'reset', label: 'Return to base bet' }, { value: 'increase', label: 'Increase bet by (win multiplier)' }] },
     winMultiplier: { label: 'win multiplier', value: 1, type: 'number' },
@@ -11,8 +11,8 @@ var config = {
     gamesBeforePause: { label: 'Pause every X games', value: 100, type: 'number' },
     roundsToSkip: { label: 'Rounds to skip (60 ≈ 10 min)', value: 60, type: 'number' },
     otherConditionsTitle: { label: 'Other Stopping Conditions', type: 'title' },
-    winGoalAmount: { label: 'Stop once you have made this much', value: currency.amount * 2, type: 'number' },
-    lossStopAmount: { label: 'Stop betting after losing this much without a win.', value: currency.amount / 6, type: 'number' },
+    winGoalAmount: { label: 'Stop once you have made this much', value: currency.amount / 2, type: 'number' },
+    lossStopAmount: { label: 'Stop betting after losing this much without a win.', value: currency.amount / 10, type: 'number' },
     loggingLevel: { label: 'logging level', value: 'compact', type: 'radio', options: [{ value: 'info', label: 'info' }, { value: 'compact', label: 'compact' }, { value: 'verbose', label: 'verbose' }] }
 };
 
